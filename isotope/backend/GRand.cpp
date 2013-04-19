@@ -101,115 +101,6 @@ double GRand::cauchy()
 	return normal() / normal();
 }
 
-int GRand::poisson(double mu)
-{
-	if(mu <= 0)
-		throw Ex("invalid parameter");
-	double p = 1.0;
-	int n = 0;
-	if(mu < 30)
-	{
-		mu = exp(-mu);
-		do {
-			p *= uniform();
-			n++;
-		} while(p >= mu);
-		return n - 1;
-	}
-	else
-	{
-		double u1, u2, x, y;
-		double c = 0.767-3.36 / mu;
-		double b = M_PI / sqrt(3.0 * mu);
-		double a = b * mu;
-		if(c <= 0)
-			throw Ex("Error generating Poisson deviate");
-		double k = log(c) - mu - log(b);
-		double ck1 = 0.0;
-		double ck2;
-		do {
-			ck2=0.;
-			do {
-				u1 = uniform();
-				x = (a - log(0.1e-18 + (1.0 - u1) / u1)) / b;
-				if(x > -0.5)
-					ck2=1.0;
-			} while (ck2<0.5);
-			n = (int)(x + 0.5);
-			u2 = uniform();
-			y = 1 + exp(a - b * x);
-			ck1 = a - b * x + log(.1e-18 + u2/(y * y));
-#ifdef WINDOWS
-			ck2 = k + n * log(.1e-18 + mu) - GMath::logGamma(n + 1.0);
-#else
-			ck2 = k + n * log(.1e-18 + mu) - lgamma(n + 1.0);
-#endif
-			if(ck1 <= ck2)
-				ck1 = 1.0;
-		} while (ck1 < 0.5);
-		return n;
-	}
-}
-
-double GRand::gamma(double alpha)
-{
-	double x;
-	if(alpha <= 0)
-		throw Ex("invalid parameter");
-	if(alpha == 1)
-		return exponential();
-	else if(alpha < 1)
-	{
-		double aa = (alpha + M_E) / M_E;
-		double r1, r2;
-		do {
-			r1 = uniform();
-			r2 = uniform();
-			if(r1 > 1.0 / aa)
-			{
-				x = -log(aa * (1.0 - r1) / alpha);
-				if(r2 < pow(x, (alpha - 1.0)))
-					return x;
-			}
-			else
-			{
-				x = pow((aa * r1), (1.0 / alpha));
-				if(r2 < exp(-x))
-					return x;
-			}
-		} while(r2 < 2);
-	}
-	else
-	{
-		double c1 = alpha-1;
-		double c2 = (alpha - 1.0 / (6.0 * alpha)) / c1;
-		double c3 = 2.0 / c1;
-		double c4 = c3 + 2.0;
-		double c5 = 1.0 / sqrt(alpha);
-		double r1, r2;
-		do {
-			do {
-				r1 = uniform();
-				r2 = uniform();
-				if(alpha > 2.5)
-					r1 = r2 + c5 * (1.0 - 1.86 * r1);
-			} while(r1 <= 0 || r1 >= 1);
-			double w = c2 * r2 / r1;
-			if((c3 * r1) + w + (1.0 / w) <= c4)
-				return c1 * w;
-			if((c3 * log(r1)) - log(w) + w < 1)
-				return c1 * w;
-		} while(r2 < 2);
-	}
-	throw Ex("Error making random gamma");
-	return 0;
-}
-
-double GRand::chiSquare(double t)
-{
-	return gamma(t / 2.0) * 2.0;
-}
-
 size_t GRand::binomial(size_t n, double p)
 {
 	size_t c = 0;
@@ -241,25 +132,11 @@ double GRand::weibull(double gamma)
 	return pow(exponential(), (1.0 / gamma));
 }
 
-double GRand::student(double t)
-{
-	if(t <= 0)
-		throw Ex("invalid parameter");
-	return normal() / sqrt(chiSquare(t) / t);
-}
-
 int GRand::geometric(double p)
 {
 	if(p <= 0 || p >= 1)
 		throw Ex("invalid parameter");
 	return (int)floor(-exponential() / log(1.0 - p));
-}
-
-double GRand::f(double t, double u)
-{
-	if(t <= 0 || u <= 0)
-		throw Ex("invalid parameters");
-	return chiSquare(t) * u / (t * chiSquare(u));
 }
 
 double GRand::logistic()
@@ -271,14 +148,6 @@ double GRand::logistic()
 double GRand::logNormal(double mean, double dev)
 {
 	return exp(normal() * dev + mean);
-}
-
-double GRand::beta(double alpha, double beta)
-{
-	if(alpha <= 0 || beta <= 0)
-		throw Ex("invalid parameters");
-	double r = gamma(alpha);
-	return r / (r + gamma(beta));
 }
 
 void GRand::cubical(double* pOutVec, size_t dims)

@@ -23,7 +23,6 @@
 #include <iostream>
 #include <queue>
 #ifdef WINDOWS
-#	include "GWindows.h"
 #	include <Ws2tcpip.h>
 #else
 #	include <time.h>
@@ -95,13 +94,26 @@ void GSocket_setSocketMode(SOCKET s, bool blocking)
 		throw Ex("Error changing the mode of a socket");
 }
 
+#ifdef WINDOWS
+void GWindows__yield()
+{
+	 MSG   aMsg;
+
+	 while(PeekMessage(&aMsg, NULL, WM_NULL, WM_NULL, PM_REMOVE))
+	 {
+			TranslateMessage(&aMsg);
+			DispatchMessage(&aMsg);
+	 }
+}
+#endif
+
 size_t GSocket_bytesReady(SOCKET s)
 {
 	if(s == INVALID_SOCKET)
 		return 0;
 	unsigned long bytesReadyToRead = 0;
 #ifdef WINDOWS
-	GWindows::yield(); // This is necessary because incoming packets go through the Windows message pump
+	GWindows__yield(); // This is necessary because incoming packets go through the Windows message pump
 	if(ioctlsocket(s, FIONREAD, &bytesReadyToRead) != 0)
 		throw Ex("ioctlsocket failed: ", winstrerror(WSAGetLastError()));
 #else

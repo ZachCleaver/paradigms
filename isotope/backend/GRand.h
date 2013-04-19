@@ -127,35 +127,6 @@ public:
 	///        returned
 	virtual uint64_t next(uint64_t range);
 
-	/// Returns a random value from a beta distribution with parameters \a alpha and \a beta
-	///
-	/// (The following was pasted from wikipedia with a little editing)
-	///
-	/// The probability density function of the beta distribution is:
-	/// 
-	/// \f{align}{
-	/// f(x;\alpha,\beta) & = \frac{x^{\alpha-1}(1-x)^{\beta-1}}{\int_0^1 u^{\alpha-1} (1-u)^{\beta-1}\, du} \\[6pt]
-	/// & = \frac{\Gamma(\alpha+\beta)}{\Gamma(\alpha)\Gamma(\beta)}\, x^{\alpha-1}(1-x)^{\beta-1} \\[6pt]
-	/// & = \frac{1}{\mathrm{B}(\alpha,\beta)}\, x
-	/// ^{\alpha-1}(1-x)^{\beta-1}
-	///  \f}
-	/// 
-	/// where \f$\Gamma(z)$f$ is the gamma function.  The beta function,
-	/// \b B, appears as a normalization constant to ensure that the
-	/// total probability integrates to unity.
-	/// 
-	/// A random variable \b X that is Beta-distributed with shape \b α
-	/// and \b β is denoted
-	/// 
-	/// \f[ X \sim \textrm{Be}(\alpha, \beta)\f]
-	/// 
-	/// 
-	///
-	/// \param alpha The \b α parameter (see above)
-	///
-	/// \param beta The \b β parameter (see above)
-	virtual double beta(double alpha, double beta);
-
 	/// Returns a random value from a binomial distribution
 	/// This method draws n samples from a uniform distribution,
 	/// so it is very slow for large values of n. binomial_approx
@@ -177,24 +148,12 @@ public:
 	/// Returns a random value from a standard Cauchy distribution
 	virtual double cauchy();
 
-	/// Returns a random value from a chi-squared distribution
-	virtual double chiSquare(double t);
-
 	/// Returns a random value from a standard exponential distribution.
 	/// (To convert it to a random value from an arbitrary exponential
 	/// distribution, just divide the value this returns by the
 	/// rate (usually lambda), or if you use the scale parameterization,
 	/// just multiply the value this returns by the scale (usually beta)).
 	virtual double exponential();
-
-	/// Returns a random value from an f-distribution
-	virtual double f(double t, double u);
-
-	/// Returns a random value from a gamma distribution with beta=theta=1.
-	/// To convert to a value from an arbitrary gamma distribution,
-	/// just divide the value this returns by beta (or use alpha=k, and
-	/// multiply the value this returns by theta).
-	virtual double gamma(double alpha);
 
 	/// \brief Returns a random value from a geometric distribution 
 	/// with support for {0, 1, 2, ...}.
@@ -218,9 +177,6 @@ public:
 	/// lowercase-sigma), then add the mean (usually mu).)
 	virtual double normal();
 
-	/// Returns a random value from a Poisson distribution
-	virtual int poisson(double mu);
-
 	/// Returns a random value from a soft-impulse distribution with support
 	/// from 0 to 1. (The cdf of the soft-impulse distribution is the soft-step
 	/// function: (1/(pow(1/x-1,s)+1)). The mean is always at 0.5, where
@@ -229,9 +185,6 @@ public:
 
 	/// Returns a random point uniformly distributed within a unit cube
 	virtual void cubical(double* pOutVec, std::size_t dims);
-
-	/// Returns a random value from Student's t-distribution
-	virtual double student(double t);
 
 	/// Returns a pseudo-random double from 0 (inclusive)
 	/// to 1 (exclusive). This uses 52 random bits for the

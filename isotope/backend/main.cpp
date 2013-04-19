@@ -251,7 +251,7 @@ void Server::fetch(const char* url, std::ostream& response)
 void Server::sendNews(const char* szId, int len, std::ostream& response)
 {
 #ifdef WINDOWS
-	size_t requesterId = _atoi64(szId));
+	size_t requesterId = (size_t)_atoi64(szId);
 #else
 	size_t requesterId = strtoll(szId, (char**)NULL, 10);
 #endif
@@ -296,7 +296,7 @@ void Server::receiveScoop(const char* szScoop, int len, std::ostream& response)
 	GDom doc;
 	doc.parseJson(szScoop, len);
 	GDomNode* pRoot = doc.root();
-	size_t id = pRoot->field("id")->asInt();
+	size_t id = (size_t)pRoot->field("id")->asInt();
 	Guest* pGuest;
 	std::map<size_t,Guest*>::iterator it = m_guests.find(id);
 	if(it == m_guests.end())
