@@ -1,12 +1,12 @@
-function Bill() {
-	this.control = Bill__control;
-	this.update = Bill__update;
-	this.onClickCanvas = Bill__onClickCanvas;
-	this.updateFromNews = Bill__updateFromNews;
+function Robot() {
+	this.control = Robot__control;
+	this.update = Robot__update;
+	this.onClickCanvas = Robot__onClickCanvas;
+	this.updateFromNews = Robot__updateFromNews;
 
 	this.direction = -0.5 * Math.PI;
 
-	var texDude = loadTexture("dude.png"); // todo: make this remote
+	var texDude = loadTexture("robot.png"); // todo: make this remote
 	this.icon = new Sprite(texDude, 64, 128);
 	this.icon.setz(-300);
 
@@ -21,7 +21,7 @@ function Bill() {
 	this.pub.url = "";
 }
 
-function Bill__control(timeNow) {
+function Robot__control(timeNow) {
 	var elapsed = Math.min(timeNow - this.timePrev, 1.0);
 
 	// Make the camera follow the avatar
@@ -67,7 +67,7 @@ function Bill__control(timeNow) {
 }
 
 
-function Bill__update(timeNow) {
+function Robot__update(timeNow) {
 
 	var p = this.pub;
 	if(timeNow < p.eta) {
@@ -98,16 +98,16 @@ function Bill__update(timeNow) {
 	this.timePrev = timeNow;
 }
 
-function Bill__updateFromNews(story) {
+function Robot__updateFromNews(story) {
 	this.pub.dx = story.dx;
 	this.pub.dz = story.dz;
 	this.pub.eta = story.eta;
 }
 
-function Bill__noop() {
+function Robot__noop() {
 }
 
-function Bill__onClickCanvas(e) {
+function Robot__onClickCanvas(e) {
 	// Calculate where the user clicked
 	var clickY = e.pageY - this.canvas.offsetTop;
 	var clickX = e.pageX - this.canvas.offsetLeft;
@@ -134,5 +134,5 @@ function Bill__onClickCanvas(e) {
 
 	// Send the scoop (destination and e.t.a.) to the server
 	var jsonBlob = JSON.stringify(this.pub);
-	httpPost(this.serverUrl + "/scoop", jsonBlob, Bill__noop);
+	httpPost(this.serverUrl + "/scoop", jsonBlob, Robot__noop);
 }
