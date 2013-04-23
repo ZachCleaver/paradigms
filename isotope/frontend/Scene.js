@@ -1,18 +1,46 @@
 function Scene() {
 	// Initialize methods
 	this.update = Scene__update;
-	this.loadPlayers = Scene__loadPlayers;
-	this.loadAvatar = Scene__loadAvatar;
-	this.doneLoadingAvatar = Scene__doneLoadingAvatar;
-	this.loadOtherPlayers = Scene__loadOtherPlayers;
+	this.loadPlayer = Scene__loadPlayer;
+	this.doneLoadingPlayer = Scene__doneLoadingPlayer;
+	this.onLoadAvatar = Scene__onLoadAvatar;
 	this.receiveNews = Scene__receiveNews;
 	this.requestNews = Scene__requestNews;
-	this.players = [];
-	this.loadPlayers();
-	var canvas = document.getElementById("main_canvas");
-	initGL(canvas);
 
-	// Load the textures
+	// Initialize the array of players
+	this.players = new Array();
+
+	// Determine the fetch url prefix
+	var pathStart = window.location.href.indexOf("/", 8);
+	if(pathStart == -1) {
+		alert("Expected a valid URL, beginning with http://, and containing a path");
+		return;
+	}
+	this.serverUrl = window.location.href.substring(0, pathStart);
+	this.fetchPrefix = this.serverUrl + "/fetch?";
+
+	// Determine the url of the avatar
+	var paramStart = window.location.href.indexOf("?", pathStart);
+	if(paramStart == -1) {
+//		alert("Expected URL parameters");
+		return;
+	}
+	var params = window.location.href.substring(paramStart + 1);
+	var originStart = params.indexOf("origin=");
+	if(originStart == -1) {
+		alert("Expected an origin parameter");
+		return;
+	}
+	
+	// Load the avatar
+	var origin = params.substring(originStart + 7);
+	var id = Math.floor(Math.random() * 9007199254740990);
+	var self = this;
+	this.canvas = document.getElementById("main_canvas");
+	this.loadPlayer(origin, id, function(newObj) { self.onLoadAvatar(newObj); } );
+
+	// Load the scenery textures
+	initGL(this.canvas);
 	var texCrate = loadTexture("crate.png");
 	var texDude = loadTexture("dude.png");
 	var texGround = loadTexture("ground.jpg");
@@ -55,17 +83,30 @@ function Scene__receiveNews(response) {
 	var delta = Math.abs(0.001 * new Date().getTime() - news.time);
 	if(delta > 10)
 		alert("Client time more than 10 seconds out of sync with server!");
-	
+	var obj = JSON.parse(response);
+	for(var i = 0; i < obj.stories.length; i++)
+	{
+		var story = obj.stories[i];
+		var sid = story.id.toString();
+		if(this.players.hasOwnProperty(sid)) {
+			// We have already loaded this player. Just update it.
+			var p = this.players[sid];
+			p.updateFromNews(story);
+		} else {
+			// We have never seen this player before, so load it.
+			this.loadPlayer(story.url, story.id, null);
+		}
+	}
 }
 
 function Scene__requestNews(timeNow) {
 	if(timeNow - this.timeRequestNews < 1.0)
 		return;
-	if (typeof this.avatarId == 'undefined')
+	if (typeof this.avatar == 'undefined')
 		return;
 	this.timeRequestNews = timeNow;
 	var self = this;
-	httpPost(this.serverUrl + "/news", this.avatarId,
+	httpPost(this.serverUrl + "/news", this.avatar.pub.id,
 			function(response) { self.receiveNews(response); }
 		);
 }
@@ -77,10 +118,12 @@ function Scene__update() {
 	this.ground.draw();
 	this.crate.draw();
 
-	for(var p = 0; p < this.players.length; p++)
-	{
-		var player = this.players[p];
-		player.update(timeNow);
+	this.avatar.control(timeNow);
+	for(var k in this.players) {
+		if(this.players.hasOwnProperty(k)) {
+			var player = this.players[k];
+			player.update(timeNow);
+		}
 	}
 
 	this.timePrev = timeNow;
@@ -124,53 +167,40 @@ function lastFilenameWithoutExtension(url) {
 // download, "callback" will still be called, but "null" will be
 // passed to it.
 function loadJavascriptFile(url, callback) {
+	var name = lastFilenameWithoutExtension(url);
+	var fn = window[name];
+	if(typeof fn === 'function') {
+		var newobj = new fn();
+		callback(newobj);
+		return;
+	}
 	var script = document.createElement("script");
 	script.type = "text/javascript";
 	script.src = url;
 	var oHead = document.getElementsByTagName("head")[0];
 	oHead.appendChild(script);
-	var name = lastFilenameWithoutExtension(url);
 	callWhenAvailable(name, callback, 250, 10000);
 }
 
 
-function Scene__loadPlayers() {
-	var pathStart = window.location.href.indexOf("/", 8);
-	if(pathStart == -1) {
-		alert("Expected a valid URL, beginning with http://, and containing a path");
-		return;
-	}
-	this.serverUrl = window.location.href.substring(0, pathStart);
-	this.fetchPrefix = this.serverUrl + "/fetch?";
-//	alert(this.fetchPrefix);
-	var paramStart = window.location.href.indexOf("?", pathStart);
-	if(paramStart == -1) {
-//		alert("Expected URL parameters");
-		return;
-	}
-	var params = window.location.href.substring(paramStart + 1);
-	var originStart = params.indexOf("origin=");
-	if(originStart == -1) {
-		alert("Expected an origin parameter");
-		return;
-	}
-	var origin = params.substring(originStart + 7);
-	this.loadAvatar(origin);
-	this.loadOtherPlayers();
+function Scene__onLoadAvatar(newObj) {
+	this.avatar = newObj;
+	newObj.canvas = this.canvas;
+	this.canvas.addEventListener("click", function(e) { newObj.onClickCanvas(e); }, true);
 }
 
-function Scene__loadAvatar(origin) {
-	var remoteurl = this.fetchPrefix + origin;
-	//alert("About to attempt to load " + remoteurl);
+function Scene__loadPlayer(url, id, cb) {
+	var fetchurl = this.fetchPrefix + url;
 	var self = this;
-	loadJavascriptFile(remoteurl, function(newObj) { self.doneLoadingAvatar(newObj); } );
+	loadJavascriptFile(fetchurl, function(newObj) { self.doneLoadingPlayer(newObj, url, id, cb); } );
 }
 
-function Scene__doneLoadingAvatar(newObj) {
-	this.players.push(newObj);
+function Scene__doneLoadingPlayer(newObj, url, id, cb) {
 	newObj.serverUrl = this.serverUrl;
-	this.avatarId = newObj.pub.id;
-}
-
-function Scene__loadOtherPlayers() {
+	newObj.pub.url = url;
+	newObj.pub.id = id;
+	var sid = newObj.pub.id.toString();
+	this.players[sid] = newObj;
+	if(cb != null)
+		cb(newObj);
 }

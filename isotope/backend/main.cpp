@@ -36,8 +36,6 @@ using std::ostream;
 using std::map;
 using std::vector;
 
-class Account;
-
 class Guest
 {
 public:
@@ -45,15 +43,18 @@ public:
 	double m_dx;
 	double m_dz;
 	double m_eta;
+	string m_url;
 	std::map<size_t,string> m_chats;
 	std::map<size_t,string> m_urls;
 
-	GDomNode* serialize(GDom* pDoc)
+	GDomNode* serialize(GDom* pDoc, size_t id)
 	{
 		GDomNode* pNode = pDoc->newObj();
+		pNode->addField(pDoc, "id", pDoc->newInt(id));
 		pNode->addField(pDoc, "dx", pDoc->newDouble(m_dx));
 		pNode->addField(pDoc, "dz", pDoc->newDouble(m_dz));
 		pNode->addField(pDoc, "eta", pDoc->newDouble(m_eta));
+		pNode->addField(pDoc, "url", pDoc->newString(m_url.c_str()));
 		return pNode;
 	}
 
@@ -62,6 +63,7 @@ public:
 		m_dx = pNode->field("dx")->asDouble();
 		m_dz = pNode->field("dz")->asDouble();
 		m_eta = pNode->field("eta")->asDouble();
+		m_url = pNode->field("url")->asString();
 	}
 };
 
@@ -72,7 +74,6 @@ class Server : public GDynamicPageServer
 {
 protected:
 	std::string m_basePath;
-	std::map<std::string,Account*> m_accounts;
 	std::map<size_t,Guest*> m_guests;
 	time_t m_lastPurge;
 
@@ -84,81 +85,10 @@ public:
 	virtual void onStateChange() {}
 	virtual void onShutDown() {}
 
-	Account* loadAccount(const char* szUsername, const char* szPasswordHash);
-	Account* newAccount(const char* szUsername, const char* szPasswordHash);
 	void fetch(const char* url, std::ostream& response);
 	void sendNews(const char* szId, int len, std::ostream& response);
 	void receiveScoop(const char* szScoop, int len, std::ostream& response);
 };
-
-class Account : public GDynamicPageSessionExtension
-{
-protected:
-	string m_username;
-	string m_passwordHash;
-
-public:
-	Account(const char* szUsername, const char* szPasswordHash)
-	: m_username(szUsername), m_passwordHash(szPasswordHash)
-	{
-	}
-
-	virtual ~Account()
-	{
-	}
-
-	virtual void onDisown()
-	{
-	}
-
-	static Account* fromDom(GDomNode* pNode)
-	{
-		Account* pAccount = new Account(pNode->field("username")->asString(), pNode->field("password")->asString());
-		return pAccount;
-	}
-
-	GDomNode* toDom(GDom* pDoc)
-	{
-		GDomNode* pAccount = pDoc->newObj();
-		pAccount->addField(pDoc, "username", pDoc->newString(m_username.c_str()));
-		pAccount->addField(pDoc, "password", pDoc->newString(m_passwordHash.c_str()));
-		return pAccount;
-	}
-
-	const char* username() { return m_username.c_str(); }
-	const char* passwordHash() { return m_passwordHash.c_str(); }
-
-	bool doesHavePassword()
-	{
-		return m_passwordHash.length() > 0;
-	}
-};
-
-Account* getAccount(GDynamicPageSession* pSession)
-{
-	Account* pAccount = (Account*)pSession->extension();
-	if(!pAccount)
-	{
-		Server* pServer = (Server*)pSession->server();
-		std::ostringstream oss;
-		oss << "_";
-		oss << pSession->id();
-		string tmp = oss.str();
-		const char* szGenericUsername = tmp.c_str();
-		pAccount = pServer->loadAccount(szGenericUsername, NULL);
-		if(!pAccount)
-		{
-			pAccount = pServer->newAccount(szGenericUsername, NULL);
-			if(!pAccount)
-				throw Ex("Failed to create account");
-		}
-		pSession->setExtension(pAccount);
-	}
-	return pAccount;
-}
-
-
-
 
 
 
@@ -177,43 +107,7 @@ Server::Server(int port, GRand* pRand) : GDynamicPageServer(port, pRand)
 
 Server::~Server()
 {
-	// Delete all the accounts
-	flushSessions(); // ensure that there are no sessions referencing the accounts
-	for(map<string,Account*>::iterator it = m_accounts.begin(); it != m_accounts.end(); it++)
-		delete(it->second);
-}
-
-Account* Server::loadAccount(const char* szUsername, const char* szPasswordHash)
-{
-	if(!szPasswordHash)
-		szPasswordHash = "";
-
-	// Find the account
-	map<string,Account*>::iterator it = m_accounts.find(szUsername);
-	if(it == m_accounts.end())
-		return NULL;
-	Account* pAccount = it->second;
-
-	// Check the password hash
-	if(_stricmp(pAccount->passwordHash(), szPasswordHash) != 0)
-		return NULL;
-	return pAccount;
-}
-
-Account* Server::newAccount(const char* szUsername, const char* szPasswordHash)
-{
-	if(!szPasswordHash)
-		szPasswordHash = "";
-
-	// See if that username already exists
-	map<string,Account*>::iterator it = m_accounts.find(szUsername);
-	if(it != m_accounts.end())
-		return NULL;
-
-	// Make the account
-	Account* pAccount = new Account(szUsername, szPasswordHash);
-	m_accounts.insert(make_pair(string(szUsername), pAccount));
-	return pAccount;
+	flushSessions();
 }
 
 bool doesMatch(const char* a, const char* b)
@@ -255,7 +149,7 @@ void Server::sendNews(const char* szId, int len, std::ostream& response)
 #else
 	size_t requesterId = strtoll(szId, (char**)NULL, 10);
 #endif
-cout << "Guest " << szId << " requested news\n";
+	//cout << "Guest " << szId << " requested news\n";
 	GDom doc;
 	GDomNode* pObj = doc.newObj();
 	doc.setRoot(pObj);
@@ -285,7 +179,8 @@ cout << "Guest " << szId << " requested news\n";
 		Guest* pGuest = it->second;
 		if(it->first == requesterId)
 			pGuest->m_timeLastCheckNews = t;
-		pStories->addItem(&doc, pGuest->serialize(&doc));
+		else
+			pStories->addItem(&doc, pGuest->serialize(&doc, it->first));
 	}
 
 	doc.writeJson(response);
@@ -307,6 +202,7 @@ void Server::receiveScoop(const char* szScoop, int len, std::ostream& response)
 	else
 		pGuest = it->second;
 	pGuest->deserialize(pRoot);
+	cout << "Guest " << to_str(id) << " sent a scoop\n";
 //doc.writeJsonPretty(cout); cout << "\n"; cout.flush();
 }
 
@@ -357,7 +253,7 @@ void LaunchBrowser(const char* szAddress)
 
 void doit(void* pArg)
 {
-	int port = 8989;
+	int port = 8988;
 	unsigned int seed = getpid() * (unsigned int)time(NULL);
 	GRand prng(seed);
 	Server server(port, &prng);
@@ -384,8 +280,10 @@ int main(int nArgs, char* pArgs[])
 	int nRet = 1;
 	try
 	{
-		doit(NULL);
-		//doItAsDaemon();
+		if(nArgs > 1 && strcmp(pArgs[1], "daemon") == 0)
+			doItAsDaemon();
+		else
+			doit(NULL);
 	}
 	catch(std::exception& e)
 	{
