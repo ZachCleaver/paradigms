@@ -4,4 +4,4 @@ def map(list, func):
 		L.append(func(i))
 	return L	
 
-print(str(map(range(1000),lambda x: x**2)))
+print(map(range(1000),lambda x: x**2))
